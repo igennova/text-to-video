@@ -3,12 +3,15 @@ import requests
 import json
 from flask_cors import CORS
 from zhipuai import ZhipuAI
+from dotenv import load_dotenv
+import os
 
 # Initialize Flask application
 app = Flask(__name__)
+load_dotenv()
 CORS(app)
 # Your API key from Zhipu AI
-API_KEY = '97bfd377737dacbce1e7009d3a97f809.58JjKGNMY4XrZW4m'
+API_KEY =os.getenv('API_KEY')
 
 # ZhipuAI client setup
 client = ZhipuAI(api_key=API_KEY)
