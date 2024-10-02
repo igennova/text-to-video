@@ -1,7 +1,3 @@
 /node_modules
-<<<<<<< HEAD
-/server/video
-/.env
-=======
 /server/SUR
->>>>>>> e6721c72ffcb8675e33e9f887bedc3ac4635b36f
+/server/config.py
