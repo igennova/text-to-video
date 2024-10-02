@@ -53,19 +53,27 @@ function App() {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1 className="text-white">AI Video Generation</h1>
+    <div className="p-5">
+      <h1 className="text-white text-2xl font-serif m-5">
+        AI Video Generation
+      </h1>
 
-      <Search
-        handleGenerateVideo={handleGenerateVideo}
-        prompt={prompt}
-        setPrompt={setPrompt}
-      />
+      <div className="center">
+        <Search
+          handleGenerateVideo={handleGenerateVideo}
+          prompt={prompt}
+          setPrompt={setPrompt}
+        />
+      </div>
 
       {videoId && (
         <div>
-          <h3>Video Generation ID: {videoId}</h3>
-          <button onClick={handleCheckVideo} style={{ padding: "10px" }}>
+          <h3 className="text-white">Video Generation ID: {videoId}</h3>
+          <button
+            className="text-white"
+            onClick={handleCheckVideo}
+            style={{ padding: "10px" }}
+          >
             Check Video Result
           </button>
         </div>
@@ -75,9 +83,9 @@ function App() {
 
       {videoUrl && (
         <div>
-          <h3>Your Generated Video:</h3>
+          <h3 className="text-white">Your Generated Video:</h3>
           <video width="600" controls>
-            <source src={videoUrl} type="video/mp4" />
+            <source className="text-white" src={videoUrl} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
         </div>
