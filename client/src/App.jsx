@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
-import Search from "./components/Search";
 import Loader from "./components/Loader";
+import VideoPlayer from "./components/VideoPlayer";
 
 function App() {
   const [prompt, setPrompt] = useState("");
@@ -53,35 +53,60 @@ function App() {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1 className="text-white">AI Video Generation</h1>
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
+      <h1 className="text-4xl font-bold mb-20 mt-10">AI Video Generator</h1>
 
-      <Search
-        handleGenerateVideo={handleGenerateVideo}
-        prompt={prompt}
-        setPrompt={setPrompt}
-      />
+      <div className="flex items-center space-x-2 w-full max-w-lg">
+        <input
+          type="text"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          className="w-full px-6 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Enter your prompt..."
+        />
+        <button
+          onClick={handleGenerateVideo}
+          className="bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 transition duration-200"
+        >
+          {loading ? <Loader /> : "Search"}
+        </button>
+      </div>
 
-      {videoId && (
+      {/* {videoId && (
         <div>
-          <h3>Video Generation ID: {videoId}</h3>
-          <button onClick={handleCheckVideo} style={{ padding: "10px" }}>
+          <h3 className="text-white">Video Generation ID: {videoId}</h3>
+          <button
+            className="text-white"
+            onClick={handleCheckVideo}
+            style={{ padding: "10px" }}
+          >
             Check Video Result
           </button>
         </div>
       )}
 
-      {loading && <Loader />}
-
       {videoUrl && (
         <div>
-          <h3>Your Generated Video:</h3>
+          <h3 className="text-white">Your Generated Video:</h3>
           <video width="600" controls>
-            <source src={videoUrl} type="video/mp4" />
+            <source className="text-white" src={videoUrl} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
         </div>
+      )} */}
+
+      {videoId && (
+        <button
+          onClick={handleCheckVideo}
+          className="mt-6 bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition duration-200"
+        >
+          Check Video Result
+        </button>
       )}
+
+      <div className="mt-10">
+        {videoUrl && <VideoPlayer source={videoUrl} />}
+      </div>
     </div>
   );
 }

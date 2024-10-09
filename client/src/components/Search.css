@@ -1,13 +1,21 @@
 /* From Uiverse.io by OnlyCodeChannel */
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .searchBox {
   display: flex;
-  max-width: 600px;
+  max-width: 750px;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   background: #2f3640;
   border-radius: 50px;
   position: relative;
+  margin: 100px;
+  margin-left: 350px;
 }
 
 .searchButton {
@@ -48,5 +56,5 @@ button:active {
   color: white;
   font-size: 15px;
   padding: 24px 46px 24px 26px;
-  width: 575px;
+  width: 725px;
 }
