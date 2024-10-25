@@ -14,7 +14,7 @@ function App() {
     setLoading(true);
     try {
       const response = await axios.post(
-        "http://127.0.0.1:5000/generate-video",
+        "https://text-to-video-backend1.onrender.com/generate-video",
         { prompt }
       );
       const id = response.data.id;
@@ -32,7 +32,7 @@ function App() {
     setLoading(true);
     try {
       const response = await axios.post(
-        "http://127.0.0.1:5000/check-video-result",
+        "https://text-to-video-backend1.onrender.com/check-video-result",
         { id: videoId }
       );
       console.log("Response from check video:", response.data); // Log the entire response
