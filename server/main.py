@@ -5,7 +5,7 @@ from flask_cors import CORS
 from zhipuai import ZhipuAI
 from dotenv import load_dotenv
 import os
-from config import API_KEY
+
 
 # Initialize Flask application
 app = Flask(__name__)
