@@ -13,6 +13,7 @@ load_dotenv()
 CORS(app)
 # Your API key from Zhipu AI
 API_KEY =os.getenv('API_KEY')
+PORT=os.getenv("PORT")
 
 # ZhipuAI client setup
 client = ZhipuAI(api_key=API_KEY)
@@ -81,5 +82,5 @@ def check_video_result():
 
 # Run the Flask application
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', PORT)
 
