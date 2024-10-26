@@ -54,7 +54,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
-      <h1 className="text-4xl font-bold mb-20 mt-10">AI Video Generator</h1>
+      <h1 className="text-4xl font-bold mb-20 mt-10">Nova Video Generator</h1>
 
       <div className="flex items-center space-x-2 w-full max-w-lg">
         <input
