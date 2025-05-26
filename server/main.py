@@ -19,7 +19,20 @@ logger = logging.getLogger(__name__)
 # Initialize Flask application
 app = Flask(__name__)
 load_dotenv()
-CORS(app)
+
+# Configure CORS to allow requests from your frontend domain
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "https://text-to-video-1wr1.onrender.com",
+            "https://text-to-video-backend1.onrender.com"
+        ],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
 # Your API key from Zhipu AI
 API_KEY = 'd000d59e55c244cbb7c8cfecede59772.cmirhsiseKY8NNuh'
@@ -49,11 +62,23 @@ RETRY_DELAY = 5    # 5 seconds between each check
 # Thread pool for handling video generation tasks
 executor = ThreadPoolExecutor(max_workers=5)
 
-# Store for video generation tasks
-video_tasks = {}
-
 # Task ID mapping
 task_id_mapping = {}
+
+# Store for video generation tasks (use a dictionary with lock for thread safety)
+video_tasks = {}
+tasks_lock = threading.Lock()
+
+def get_task_status(task_id):
+    with tasks_lock:
+        return video_tasks.get(task_id)
+
+def update_task_status(task_id, status_update):
+    with tasks_lock:
+        if task_id in video_tasks:
+            video_tasks[task_id].update(status_update)
+        else:
+            video_tasks[task_id] = status_update
 
 def handle_api_response(response):
     """Helper function to handle API response and extract relevant data"""
@@ -185,7 +210,7 @@ def process_queue():
                     active_requests.add(task_id)
                     
                     # Update status
-                    video_tasks[task_id].update({
+                    update_task_status(task_id, {
                         "status": "processing",
                         "message": "Starting video generation...",
                         "queue_position": 0,
@@ -203,6 +228,7 @@ def process_queue():
 def process_video_request(task_id, prompt, settings):
     """Process a single video generation request"""
     try:
+        logger.info(f"Processing video request for task {task_id}")
         # Generate video using ZhipuAI client
         response = client.videos.generations(
             model=settings['model'],
@@ -218,20 +244,24 @@ def process_video_request(task_id, prompt, settings):
         if not api_task_id:
             raise Exception("No task ID received from API")
             
-        # Update the task ID mapping
+        logger.info(f"Received API task ID: {api_task_id} for internal task ID: {task_id}")
+        
+        # Update the task ID mapping and status
         with queue_lock:
             task_id_mapping[task_id] = api_task_id
-            if task_id in video_tasks:
-                video_tasks[task_id].update({
-                    "api_task_id": api_task_id
-                })
+            update_task_status(task_id, {
+                "status": "processing",
+                "message": "Starting video generation...",
+                "api_task_id": api_task_id,
+                "queue_position": 0
+            })
         
         # Start polling for this request
         poll_video_status(task_id, api_task_id)
         
     except Exception as e:
         logger.error(f"Error processing video request: {str(e)}")
-        video_tasks[task_id].update({
+        update_task_status(task_id, {
             "status": "error",
             "message": f"Error processing request: {str(e)}"
         })
@@ -276,16 +306,17 @@ def generate_video():
 
         # Generate unique task ID
         task_id = f"task_{int(time.time() * 1000)}"
+        logger.info(f"Generated new task ID: {task_id}")
         
         # Initialize task status
         queue_position = request_queue.qsize() + 1
-        video_tasks[task_id] = {
+        update_task_status(task_id, {
             "status": "queued",
             "queue_position": queue_position,
             "message": f"Waiting in queue (Position: {queue_position})",
             "created_at": datetime.now().isoformat(),
             "progress": 0
-        }
+        })
         
         # Add to queue
         request_queue.put({
@@ -310,17 +341,21 @@ def generate_video():
 @app.route('/check-status/<task_id>', methods=['GET'])
 def check_status(task_id):
     """Check the status of a video generation task"""
+    logger.info(f"Checking status for task: {task_id}")
+    
     # First try to find the task directly
-    if task_id in video_tasks:
-        task_status = video_tasks[task_id]
-        return jsonify(task_status), 200
+    status = get_task_status(task_id)
+    if status:
+        return jsonify(status), 200
         
     # If not found, check if it's an API task ID that we're tracking
     for internal_id, api_id in task_id_mapping.items():
-        if api_id == task_id and internal_id in video_tasks:
-            task_status = video_tasks[internal_id]
-            return jsonify(task_status), 200
+        if api_id == task_id:
+            status = get_task_status(internal_id)
+            if status:
+                return jsonify(status), 200
     
+    logger.warning(f"Task not found: {task_id}")
     return jsonify({
         "status": "error",
         "message": "Task not found"
@@ -353,7 +388,9 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "version": "1.0.0",
-        "timestamp": time.time()
+        "timestamp": time.time(),
+        "active_tasks": len(active_requests),
+        "queued_tasks": request_queue.qsize()
     }), 200
 
 if __name__ == '__main__':
@@ -368,7 +405,8 @@ if __name__ == '__main__':
         cleanup_thread.start()
 
         # Run the Flask app
-        app.run(debug=True, use_reloader=False)
+        port = int(os.environ.get('PORT', 5000))
+        app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
     except KeyboardInterrupt:
         print("Shutting down server...")
     except Exception as e:
