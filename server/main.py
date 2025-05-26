@@ -11,6 +11,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 from datetime import datetime
+import redis
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -69,16 +70,53 @@ task_id_mapping = {}
 video_tasks = {}
 tasks_lock = threading.Lock()
 
+# Configure Redis
+REDIS_URL = os.getenv('REDIS_URL', 'redis://red-d0qb0h0dl3ps73eq55dg:6379')
+redis_client = redis.from_url(REDIS_URL)
+
 def get_task_status(task_id):
-    with tasks_lock:
-        return video_tasks.get(task_id)
+    """Get task status from Redis"""
+    try:
+        status = redis_client.get(f"task:{task_id}")
+        return json.loads(status) if status else None
+    except Exception as e:
+        logger.error(f"Error getting task status from Redis: {e}")
+        return None
 
 def update_task_status(task_id, status_update):
-    with tasks_lock:
-        if task_id in video_tasks:
-            video_tasks[task_id].update(status_update)
-        else:
-            video_tasks[task_id] = status_update
+    """Update task status in Redis"""
+    try:
+        # Get existing status
+        current_status = get_task_status(task_id) or {}
+        # Update with new data
+        current_status.update(status_update)
+        # Save back to Redis with 1 hour expiry
+        redis_client.setex(
+            f"task:{task_id}",
+            3600,  # 1 hour expiry
+            json.dumps(current_status)
+        )
+        logger.info(f"Updated task {task_id} status: {status_update}")
+    except Exception as e:
+        logger.error(f"Error updating task status in Redis: {e}")
+
+def get_task_mapping(task_id):
+    """Get task ID mapping from Redis"""
+    try:
+        return redis_client.get(f"mapping:{task_id}")
+    except Exception as e:
+        logger.error(f"Error getting task mapping from Redis: {e}")
+        return None
+
+def set_task_mapping(internal_id, api_id):
+    """Set task ID mapping in Redis"""
+    try:
+        # Save mapping both ways with 1 hour expiry
+        redis_client.setex(f"mapping:{internal_id}", 3600, api_id)
+        redis_client.setex(f"mapping:{api_id}", 3600, internal_id)
+        logger.info(f"Mapped task IDs: {internal_id} <-> {api_id}")
+    except Exception as e:
+        logger.error(f"Error setting task mapping in Redis: {e}")
 
 def handle_api_response(response):
     """Helper function to handle API response and extract relevant data"""
@@ -348,12 +386,12 @@ def check_status(task_id):
     if status:
         return jsonify(status), 200
         
-    # If not found, check if it's an API task ID that we're tracking
-    for internal_id, api_id in task_id_mapping.items():
-        if api_id == task_id:
-            status = get_task_status(internal_id)
-            if status:
-                return jsonify(status), 200
+    # If not found, check if it's an API task ID
+    internal_id = get_task_mapping(task_id)
+    if internal_id:
+        status = get_task_status(internal_id)
+        if status:
+            return jsonify(status), 200
     
     logger.warning(f"Task not found: {task_id}")
     return jsonify({
@@ -385,12 +423,20 @@ cleanup_thread.start()
 # Health check endpoint
 @app.route('/health', methods=['GET'])
 def health_check():
+    try:
+        # Test Redis connection
+        redis_client.ping()
+        redis_status = "connected"
+    except Exception as e:
+        redis_status = f"error: {str(e)}"
+
     return jsonify({
         "status": "healthy",
         "version": "1.0.0",
         "timestamp": time.time(),
         "active_tasks": len(active_requests),
-        "queued_tasks": request_queue.qsize()
+        "queued_tasks": request_queue.qsize(),
+        "redis_status": redis_status
     }), 200
 
 if __name__ == '__main__':
