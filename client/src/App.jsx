@@ -260,7 +260,7 @@ export default function AIVideoGeneratorLanding() {
                     </div>
                   </div>
                   <textarea
-                    className="w-full p-6 bg-black/50 backdrop-blur-md border-2 border-blue-500/20 rounded-2xl text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                    className="w-full p-6 md:p-6 p-4 bg-black/50 backdrop-blur-md border-2 border-blue-500/20 rounded-2xl text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 text-sm md:text-base"
                     rows="3"
                     placeholder="Describe your video idea... (e.g., 'A futuristic cityscape at sunset with flying cars')"
                     value={prompt}
@@ -269,17 +269,17 @@ export default function AIVideoGeneratorLanding() {
                   <button
                     onClick={generateVideo}
                     disabled={loading || !prompt.trim()}
-                    className="absolute right-3 bottom-3 bg-gradient-to-r from-blue-600 to-blue-400 text-white px-8 py-3 rounded-xl hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center space-x-2 shadow-lg shadow-blue-500/20 group"
+                    className="absolute right-2 md:right-3 bottom-2 md:bottom-3 bg-gradient-to-r from-blue-600 to-blue-400 text-white px-4 md:px-8 py-2 md:py-3 rounded-xl hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center space-x-2 shadow-lg shadow-blue-500/20 group text-sm md:text-base"
                   >
                     {loading ? (
                       <>
-                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                        <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
                         <span className="font-medium">Generating...</span>
                       </>
                     ) : (
                       <>
-                        <SparklesIcon className="w-5 h-5 group-hover:animate-pulse" />
-                        <span className="font-medium">Generate Video</span>
+                        <SparklesIcon className="w-4 h-4 md:w-5 md:h-5 group-hover:animate-pulse" />
+                        <span className="font-medium">Generate</span>
                       </>
                     )}
                   </button>
@@ -287,18 +287,18 @@ export default function AIVideoGeneratorLanding() {
               </div>
               
               {status && (
-                <div className="mt-4 p-4 bg-black/50 backdrop-blur-md rounded-xl border border-blue-500/20">
+                <div className="mt-4 p-3 md:p-4 bg-black/50 backdrop-blur-md rounded-xl border border-blue-500/20">
                   <div className="flex items-center space-x-2">
                     {loading ? (
-                      <div className="w-4 h-4 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                      <div className="w-3 h-3 md:w-4 md:h-4 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
                     ) : status.toLowerCase().includes('success') ? (
-                      <CheckIcon className="w-5 h-5 text-green-500" />
+                      <CheckIcon className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
                     ) : status.toLowerCase().includes('fail') || status.toLowerCase().includes('error') ? (
-                      <XMarkIcon className="w-5 h-5 text-red-500" />
+                      <XMarkIcon className="w-4 h-4 md:w-5 md:h-5 text-red-500" />
                     ) : (
-                      <ClockIcon className="w-5 h-5 text-blue-500 animate-pulse" />
+                      <ClockIcon className="w-4 h-4 md:w-5 md:h-5 text-blue-500 animate-pulse" />
                     )}
-                    <p className="text-gray-300 font-medium">{status}</p>
+                    <p className="text-gray-300 font-medium text-sm md:text-base">{status}</p>
                   </div>
                 </div>
               )}
@@ -307,19 +307,19 @@ export default function AIVideoGeneratorLanding() {
               <div className="mt-4 flex flex-wrap gap-2">
                 <button 
                   onClick={() => setPrompt("A serene mountain landscape with flowing waterfalls")}
-                  className="text-sm px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all"
+                  className="text-xs md:text-sm px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all"
                 >
                   🏔️ Mountain Scene
                 </button>
                 <button 
                   onClick={() => setPrompt("A futuristic city with neon lights and flying vehicles")}
-                  className="text-sm px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all"
+                  className="text-xs md:text-sm px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all"
                 >
                   🌆 Futuristic City
                 </button>
                 <button 
                   onClick={() => setPrompt("An abstract animation of colorful particles forming a logo")}
-                  className="text-sm px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all"
+                  className="text-xs md:text-sm px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all"
                 >
                   ✨ Abstract Logo
                 </button>
