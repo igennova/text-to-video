@@ -61,7 +61,7 @@ MAX_RETRIES = 120  # 10 minutes total maximum wait time
 RETRY_DELAY = 5    # 5 seconds between each check
 
 # Thread pool for handling video generation tasks
-executor = ThreadPoolExecutor(max_workers=5)
+executor = ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS, thread_name_prefix="video_gen")
 
 # Task ID mapping
 task_id_mapping = {}
@@ -233,16 +233,20 @@ def poll_video_status(internal_task_id, api_task_id):
 
 def process_queue():
     """Process requests from the queue when slots are available"""
+    logger.info("Queue processor thread started")
     while True:
         try:
             # Check if we can process more requests
             with queue_lock:
+                logger.info(f"Active requests: {len(active_requests)}, Queue size: {request_queue.qsize()}")
                 if len(active_requests) < MAX_CONCURRENT_REQUESTS and not request_queue.empty():
                     # Get next request from queue
                     request_data = request_queue.get()
                     task_id = request_data['task_id']
                     prompt = request_data['prompt']
                     settings = request_data['settings']
+                    
+                    logger.info(f"Processing task {task_id} from queue")
                     
                     # Add to active requests
                     active_requests.add(task_id)
@@ -257,6 +261,7 @@ def process_queue():
                     
                     # Start processing in background
                     executor.submit(process_video_request, task_id, prompt, settings)
+                    logger.info(f"Submitted task {task_id} to executor")
             
             time.sleep(1)  # Prevent busy waiting
         except Exception as e:
@@ -266,7 +271,7 @@ def process_queue():
 def process_video_request(task_id, prompt, settings):
     """Process a single video generation request"""
     try:
-        logger.info(f"Processing video request for task {task_id}")
+        logger.info(f"Starting video generation for task {task_id}")
         # Generate video using ZhipuAI client
         response = client.videos.generations(
             model=settings['model'],
@@ -285,20 +290,19 @@ def process_video_request(task_id, prompt, settings):
         logger.info(f"Received API task ID: {api_task_id} for internal task ID: {task_id}")
         
         # Update the task ID mapping and status
-        with queue_lock:
-            task_id_mapping[task_id] = api_task_id
-            update_task_status(task_id, {
-                "status": "processing",
-                "message": "Starting video generation...",
-                "api_task_id": api_task_id,
-                "queue_position": 0
-            })
+        set_task_mapping(task_id, api_task_id)
+        update_task_status(task_id, {
+            "status": "processing",
+            "message": "Starting video generation...",
+            "api_task_id": api_task_id,
+            "queue_position": 0
+        })
         
         # Start polling for this request
         poll_video_status(task_id, api_task_id)
         
     except Exception as e:
-        logger.error(f"Error processing video request: {str(e)}")
+        logger.error(f"Error processing video request for task {task_id}: {str(e)}")
         update_task_status(task_id, {
             "status": "error",
             "message": f"Error processing request: {str(e)}"
@@ -308,6 +312,7 @@ def process_video_request(task_id, prompt, settings):
         with queue_lock:
             active_requests.discard(task_id)
             update_queue_positions()
+            logger.info(f"Task {task_id} removed from active requests. Active: {len(active_requests)}")
 
 def update_queue_positions():
     """Update queue positions for all waiting requests"""
@@ -327,9 +332,17 @@ def update_queue_positions():
     except Exception as e:
         logger.error(f"Error updating queue positions: {str(e)}")
 
-# Start queue processing thread immediately when module loads
-queue_processor = threading.Thread(target=process_queue, daemon=True)
+# Start queue processor thread immediately
+logger.info("Initializing queue processor thread")
+queue_processor = threading.Thread(target=process_queue, daemon=True, name="queue_processor")
 queue_processor.start()
+
+# Start cleanup thread immediately
+logger.info("Initializing cleanup thread")
+cleanup_thread = threading.Thread(target=cleanup_old_tasks, daemon=True, name="cleanup")
+cleanup_thread.start()
+
+logger.info("Server initialization complete")
 
 @app.route('/generate-video', methods=['POST'])
 def generate_video():
@@ -369,6 +382,7 @@ def generate_video():
             "prompt": prompt,
             "settings": settings
         })
+        logger.info(f"Added task {task_id} to queue. Queue size: {request_queue.qsize()}")
         
         return jsonify({
             "message": "Request queued successfully",
@@ -377,7 +391,7 @@ def generate_video():
         }), 202
 
     except Exception as e:
-        logger.error(f"Server Error: {str(e)}")
+        logger.error(f"Server Error in generate_video: {str(e)}")
         return jsonify({
             "error": str(e),
             "message": "Failed to queue video generation request"
@@ -431,10 +445,6 @@ def cleanup_old_tasks():
             logger.error(f"Error in cleanup task: {str(e)}")
         
         time.sleep(300)  # Run cleanup every 5 minutes
-
-# Start cleanup thread immediately when module loads
-cleanup_thread = threading.Thread(target=cleanup_old_tasks, daemon=True)
-cleanup_thread.start()
 
 # Health check endpoint
 @app.route('/health', methods=['GET'])
