@@ -1,0 +1,7 @@
+Flask==2.3.3
+requests==2.31.0
+Flask-Cors==3.0.10
+python-dotenv==1.0.0
+zhipuai  # Add the correct version if known, e.g., zhipuai==1.0.0
+gunicorn==20.1.0  # You can specify a version if necessary, or simply `gunicorn`
+aiohttp==3.8.5
