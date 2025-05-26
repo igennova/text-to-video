@@ -146,14 +146,15 @@ def handle_api_response(response):
 
 def poll_video_status(internal_task_id, api_task_id):
     """Poll for video generation status until completion or failure"""
-    total_wait_time = 0
     start_time = time.time()
+    max_poll_time = 900  # 15 minutes maximum polling time
+    poll_interval = 2  # Check every 2 seconds
     
     logger.info(f"Starting to poll video status for task {internal_task_id} (API ID: {api_task_id})")
     
-    while total_wait_time < (MAX_RETRIES * RETRY_DELAY) and not shutdown_flag.is_set():
+    while (time.time() - start_time) < max_poll_time:
         try:
-            logger.info(f"Polling attempt for task {internal_task_id}, elapsed: {total_wait_time}s")
+            logger.info(f"Polling for task {internal_task_id}")
             
             status_response = client.videos.retrieve_videos_result(id=api_task_id)
             response_data = handle_api_response(status_response)
@@ -168,8 +169,7 @@ def poll_video_status(internal_task_id, api_task_id):
                 return
             
             task_status = response_data.get('task_status', '').upper()
-            current_time = time.time()
-            time_elapsed = current_time - start_time
+            time_elapsed = time.time() - start_time
             
             logger.info(f"Task {internal_task_id} status: {task_status}")
             
@@ -215,18 +215,16 @@ def poll_video_status(internal_task_id, api_task_id):
                 "api_task_id": api_task_id
             })
             
-            time.sleep(RETRY_DELAY)
-            total_wait_time += RETRY_DELAY
+            time.sleep(poll_interval)
             
         except Exception as e:
             error_msg = str(e)
             logger.error(f"Error polling task {internal_task_id}: {error_msg}")
             
             if "任务不存在" in error_msg or "task does not exist" in error_msg.lower():
-                if time_elapsed < 120:  # Wait up to 2 minutes for task to appear
+                if time_elapsed < 60:  # Wait up to 1 minute for task to appear
                     logger.info(f"Task {internal_task_id} not found yet, retrying...")
-                    time.sleep(RETRY_DELAY)
-                    total_wait_time += RETRY_DELAY
+                    time.sleep(poll_interval)
                     continue
                     
             update_task_status(internal_task_id, {
@@ -237,7 +235,7 @@ def poll_video_status(internal_task_id, api_task_id):
             return
     
     # If we get here, we've timed out
-    logger.error(f"Task {internal_task_id} timed out")
+    logger.error(f"Task {internal_task_id} timed out after {max_poll_time} seconds")
     update_task_status(internal_task_id, {
         "status": "error",
         "message": "Video generation timed out",

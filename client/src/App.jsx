@@ -24,7 +24,6 @@ export default function AIVideoGeneratorLanding() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [showDemo, setShowDemo] = useState(false);
-  const [queuePosition, setQueuePosition] = useState(null);
   const [settings, setSettings] = useState({
     model: "cogvideox-2",
     quality: "quality",
@@ -37,10 +36,9 @@ export default function AIVideoGeneratorLanding() {
   const generateVideo = async () => {
     try {
       setLoading(true);
-      setStatus("Submitting request...");
+      setStatus("Starting video generation...");
       setVideoUrl(null);
       setCoverImage(null);
-      setQueuePosition(null);
 
       const response = await axios.post('https://text-to-video-backend1.onrender.com/generate-video', {
         prompt,
@@ -48,15 +46,15 @@ export default function AIVideoGeneratorLanding() {
       });
 
       if (response.data.taskId) {
-        setQueuePosition(response.data.queuePosition);
+        setRequestId(response.data.taskId);
         pollForVideo(response.data.taskId);
       } else {
-        setStatus("Failed to submit video generation request.");
+        setStatus("Failed to start video generation.");
         setLoading(false);
       }
     } catch (error) {
       console.error("Error generating video:", error);
-      setStatus("Failed to submit request. Please try again.");
+      setStatus("Failed to start video generation. Please try again.");
       setLoading(false);
     }
   };
@@ -65,32 +63,25 @@ export default function AIVideoGeneratorLanding() {
     const interval = setInterval(async () => {
       try {
         const response = await axios.get(`https://text-to-video-backend1.onrender.com/check-status/${taskId}`);
-        const { status, message, videoUrl, coverImageUrl, progress, queue_position } = response.data;
+        const { status: videoStatus, message, videoUrl, coverImageUrl, progress } = response.data;
 
-        if (status === "success") {
+        if (videoStatus === "success") {
           setVideoUrl(videoUrl);
           setCoverImage(coverImageUrl);
           setStatus("Video generated successfully!");
           setLoading(false);
-          setQueuePosition(null);
           clearInterval(interval);
-        } else if (status === "processing") {
-          setStatus(`${message || 'Processing video...'} (${progress}%)`);
-          setQueuePosition(null);
-        } else if (status === "queued") {
-          setStatus(message || 'Waiting in queue...');
-          setQueuePosition(queue_position);
-        } else {
+        } else if (videoStatus === "processing") {
+          setStatus(`${message || 'Processing video...'} (${progress || 0}%)`);
+        } else if (videoStatus === "error") {
           setStatus(`Error: ${message}`);
           setLoading(false);
-          setQueuePosition(null);
           clearInterval(interval);
         }
       } catch (error) {
         console.error("Error checking video status:", error);
         setStatus("Error retrieving video status.");
         setLoading(false);
-        setQueuePosition(null);
         clearInterval(interval);
       }
     }, 1000);
@@ -279,7 +270,7 @@ export default function AIVideoGeneratorLanding() {
                     {loading ? (
                       <>
                         <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                        <span className="font-medium">Creating...</span>
+                        <span className="font-medium">Generating...</span>
                       </>
                     ) : (
                       <>
@@ -305,13 +296,6 @@ export default function AIVideoGeneratorLanding() {
                     )}
                     <p className="text-gray-300 font-medium">{status}</p>
                   </div>
-                  {queuePosition > 0 && (
-                    <div className="mt-2 flex items-center space-x-2 text-sm text-gray-400">
-                      <span>Queue Position: {queuePosition}</span>
-                      <span>•</span>
-                      <span>Estimated wait time: {queuePosition * 2} minutes</span>
-                    </div>
-                  )}
                 </div>
               )}
 
