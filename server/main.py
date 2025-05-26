@@ -311,16 +311,23 @@ def process_video_request(task_id, prompt, settings):
 
 def update_queue_positions():
     """Update queue positions for all waiting requests"""
-    position = 1
-    for task_id in video_tasks:
-        if video_tasks[task_id].get("status") == "queued":
-            video_tasks[task_id].update({
-                "queue_position": position,
-                "message": f"Waiting in queue (Position: {position})"
-            })
-            position += 1
+    try:
+        # Get all task keys from Redis
+        task_keys = redis_client.keys("task:*")
+        position = 1
+        
+        for task_key in task_keys:
+            task_data = get_task_status(task_key.decode().split(":")[1])
+            if task_data and task_data.get("status") == "queued":
+                update_task_status(task_key.decode().split(":")[1], {
+                    "queue_position": position,
+                    "message": f"Waiting in queue (Position: {position})"
+                })
+                position += 1
+    except Exception as e:
+        logger.error(f"Error updating queue positions: {str(e)}")
 
-# Start queue processing thread
+# Start queue processing thread immediately when module loads
 queue_processor = threading.Thread(target=process_queue, daemon=True)
 queue_processor.start()
 
@@ -399,24 +406,33 @@ def check_status(task_id):
         "message": "Task not found"
     }), 404
 
-# Cleanup completed tasks periodically
 def cleanup_old_tasks():
+    """Cleanup completed tasks periodically"""
     while True:
-        current_time = time.time()
-        to_remove = []
-        
-        for task_id, task_data in video_tasks.items():
-            if task_data.get('status') in ['success', 'error']:
-                # Keep successful/failed tasks for 1 hour
-                if current_time - task_data.get('timeElapsed', 0) > 3600:
-                    to_remove.append(task_id)
-        
-        for task_id in to_remove:
-            video_tasks.pop(task_id, None)
+        try:
+            # Get all task keys from Redis
+            task_keys = redis_client.keys("task:*")
+            mapping_keys = redis_client.keys("mapping:*")
             
-        time.sleep(3600)  # Run cleanup every hour
+            # No need to manually remove tasks as they have TTL set
+            # Just log the current state
+            total_tasks = len(task_keys)
+            completed_tasks = 0
+            
+            for task_key in task_keys:
+                task_id = task_key.decode().split(":")[1]
+                task_data = get_task_status(task_id)
+                if task_data and task_data.get("status") in ["success", "error"]:
+                    completed_tasks += 1
+            
+            logger.info(f"Task status: {completed_tasks} completed out of {total_tasks} total")
+            
+        except Exception as e:
+            logger.error(f"Error in cleanup task: {str(e)}")
+        
+        time.sleep(300)  # Run cleanup every 5 minutes
 
-# Start cleanup thread
+# Start cleanup thread immediately when module loads
 cleanup_thread = threading.Thread(target=cleanup_old_tasks, daemon=True)
 cleanup_thread.start()
 
@@ -440,16 +456,7 @@ def health_check():
     }), 200
 
 if __name__ == '__main__':
-    # Start background threads before running the app
     try:
-        # Start queue processor thread
-        queue_processor = threading.Thread(target=process_queue, daemon=True)
-        queue_processor.start()
-
-        # Start cleanup thread
-        cleanup_thread = threading.Thread(target=cleanup_old_tasks, daemon=True)
-        cleanup_thread.start()
-
         # Run the Flask app
         port = int(os.environ.get('PORT', 5000))
         app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
