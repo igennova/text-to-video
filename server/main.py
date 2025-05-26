@@ -332,6 +332,52 @@ def update_queue_positions():
     except Exception as e:
         logger.error(f"Error updating queue positions: {str(e)}")
 
+def cleanup_old_tasks():
+    """Cleanup completed tasks periodically"""
+    logger.info("Cleanup thread started")
+    while True:
+        try:
+            # Get all task keys from Redis
+            task_keys = redis_client.keys("task:*")
+            mapping_keys = redis_client.keys("mapping:*")
+            
+            # No need to manually remove tasks as they have TTL set
+            # Just log the current state
+            total_tasks = len(task_keys)
+            completed_tasks = 0
+            
+            for task_key in task_keys:
+                task_id = task_key.decode().split(":")[1]
+                task_data = get_task_status(task_id)
+                if task_data and task_data.get("status") in ["success", "error"]:
+                    completed_tasks += 1
+            
+            logger.info(f"Task status: {completed_tasks} completed out of {total_tasks} total")
+            
+        except Exception as e:
+            logger.error(f"Error in cleanup task: {str(e)}")
+        
+        time.sleep(300)  # Run cleanup every 5 minutes
+
+# Health check endpoint
+@app.route('/health', methods=['GET'])
+def health_check():
+    try:
+        # Test Redis connection
+        redis_client.ping()
+        redis_status = "connected"
+    except Exception as e:
+        redis_status = f"error: {str(e)}"
+
+    return jsonify({
+        "status": "healthy",
+        "version": "1.0.0",
+        "timestamp": time.time(),
+        "active_tasks": len(active_requests),
+        "queued_tasks": request_queue.qsize(),
+        "redis_status": redis_status
+    }), 200
+
 # Start queue processor thread immediately
 logger.info("Initializing queue processor thread")
 queue_processor = threading.Thread(target=process_queue, daemon=True, name="queue_processor")
@@ -419,51 +465,6 @@ def check_status(task_id):
         "status": "error",
         "message": "Task not found"
     }), 404
-
-def cleanup_old_tasks():
-    """Cleanup completed tasks periodically"""
-    while True:
-        try:
-            # Get all task keys from Redis
-            task_keys = redis_client.keys("task:*")
-            mapping_keys = redis_client.keys("mapping:*")
-            
-            # No need to manually remove tasks as they have TTL set
-            # Just log the current state
-            total_tasks = len(task_keys)
-            completed_tasks = 0
-            
-            for task_key in task_keys:
-                task_id = task_key.decode().split(":")[1]
-                task_data = get_task_status(task_id)
-                if task_data and task_data.get("status") in ["success", "error"]:
-                    completed_tasks += 1
-            
-            logger.info(f"Task status: {completed_tasks} completed out of {total_tasks} total")
-            
-        except Exception as e:
-            logger.error(f"Error in cleanup task: {str(e)}")
-        
-        time.sleep(300)  # Run cleanup every 5 minutes
-
-# Health check endpoint
-@app.route('/health', methods=['GET'])
-def health_check():
-    try:
-        # Test Redis connection
-        redis_client.ping()
-        redis_status = "connected"
-    except Exception as e:
-        redis_status = f"error: {str(e)}"
-
-    return jsonify({
-        "status": "healthy",
-        "version": "1.0.0",
-        "timestamp": time.time(),
-        "active_tasks": len(active_requests),
-        "queued_tasks": request_queue.qsize(),
-        "redis_status": redis_status
-    }), 200
 
 if __name__ == '__main__':
     try:
