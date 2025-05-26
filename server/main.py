@@ -55,36 +55,6 @@ video_tasks = {}
 # Task ID mapping
 task_id_mapping = {}
 
-# File paths for persistence
-TASKS_FILE = 'tasks.json'
-MAPPING_FILE = 'task_mapping.json'
-
-def save_tasks():
-    """Save tasks to file"""
-    try:
-        with open(TASKS_FILE, 'w') as f:
-            json.dump(video_tasks, f)
-        with open(MAPPING_FILE, 'w') as f:
-            json.dump(task_id_mapping, f)
-    except Exception as e:
-        logger.error(f"Error saving tasks: {e}")
-
-def load_tasks():
-    """Load tasks from file"""
-    global video_tasks, task_id_mapping
-    try:
-        if os.path.exists(TASKS_FILE):
-            with open(TASKS_FILE, 'r') as f:
-                video_tasks = json.load(f)
-        if os.path.exists(MAPPING_FILE):
-            with open(MAPPING_FILE, 'r') as f:
-                task_id_mapping = json.load(f)
-    except Exception as e:
-        logger.error(f"Error loading tasks: {e}")
-
-# Load saved tasks at startup
-load_tasks()
-
 def handle_api_response(response):
     """Helper function to handle API response and extract relevant data"""
     try:
@@ -248,20 +218,20 @@ def process_video_request(task_id, prompt, settings):
         if not api_task_id:
             raise Exception("No task ID received from API")
             
-        # Update the task ID mapping and persist
+        # Update the task ID mapping
         with queue_lock:
             task_id_mapping[task_id] = api_task_id
-            video_tasks[task_id].update({
-                "api_task_id": api_task_id
-            })
-            save_tasks()
+            if task_id in video_tasks:
+                video_tasks[task_id].update({
+                    "api_task_id": api_task_id
+                })
         
         # Start polling for this request
         poll_video_status(task_id, api_task_id)
         
     except Exception as e:
         logger.error(f"Error processing video request: {str(e)}")
-        update_task_status(task_id, {
+        video_tasks[task_id].update({
             "status": "error",
             "message": f"Error processing request: {str(e)}"
         })
@@ -340,10 +310,6 @@ def generate_video():
 @app.route('/check-status/<task_id>', methods=['GET'])
 def check_status(task_id):
     """Check the status of a video generation task"""
-    logger.info(f"Checking status for task: {task_id}")
-    logger.info(f"Current tasks: {list(video_tasks.keys())}")
-    logger.info(f"Task mappings: {task_id_mapping}")
-    
     # First try to find the task directly
     if task_id in video_tasks:
         task_status = video_tasks[task_id]
@@ -354,25 +320,6 @@ def check_status(task_id):
         if api_id == task_id and internal_id in video_tasks:
             task_status = video_tasks[internal_id]
             return jsonify(task_status), 200
-            
-    # If still not found, try to get status directly from API
-    try:
-        status_response = client.videos.retrieve_videos_result(id=task_id)
-        response_data = handle_api_response(status_response)
-        
-        if response_data:
-            task_status = {
-                "status": "processing" if response_data.get('task_status') == 'PROCESSING' else "success",
-                "videoUrl": response_data.get('video_result', [{}])[0].get('url'),
-                "coverImageUrl": response_data.get('video_result', [{}])[0].get('cover_image_url'),
-                "message": "Retrieved from API directly",
-                "api_task_id": task_id
-            }
-            # Store this task for future reference
-            update_task_status(task_id, task_status)
-            return jsonify(task_status), 200
-    except Exception as e:
-        logger.error(f"Error checking API status: {e}")
     
     return jsonify({
         "status": "error",
@@ -408,12 +355,6 @@ def health_check():
         "version": "1.0.0",
         "timestamp": time.time()
     }), 200
-
-def update_task_status(task_id, status_data):
-    """Update task status and persist to file"""
-    with queue_lock:
-        video_tasks[task_id] = status_data
-        save_tasks()
 
 if __name__ == '__main__':
     # Start background threads before running the app
