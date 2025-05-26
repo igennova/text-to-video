@@ -42,7 +42,7 @@ export default function AIVideoGeneratorLanding() {
       setCoverImage(null);
       setQueuePosition(null);
 
-      const response = await axios.post('http://localhost:5000/generate-video', {
+      const response = await axios.post('https://text-to-video-backend1.onrender.com/generate-video', {
         prompt,
         ...settings
       });
@@ -64,7 +64,7 @@ export default function AIVideoGeneratorLanding() {
   const pollForVideo = async (taskId) => {
     const interval = setInterval(async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/check-status/${taskId}`);
+        const response = await axios.get(`https://text-to-video-backend1.onrender.com/check-status/${taskId}`);
         const { status, message, videoUrl, coverImageUrl, progress, queue_position } = response.data;
 
         if (status === "success") {
@@ -198,9 +198,9 @@ export default function AIVideoGeneratorLanding() {
       image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
       text: "Finally, professional video content without the professional budget. This tool is a game-changer!",
       rating: 5,
-      videoUrl: "./demo-video.mp4",
+      videoUrl: "./demo-3.mp4",
       prompt: "Modern product showcase with floating elements and dynamic lighting",
-      thumbnail: "./demo-video.mp4"
+      thumbnail: "./demo-3.mp4"
     }
   ];
 
@@ -413,13 +413,7 @@ export default function AIVideoGeneratorLanding() {
                         <ArrowPathIcon className="w-5 h-5" />
                         <span>Generate Another</span>
                       </button>
-                      <button 
-                        onClick={() => handleDownload(videoUrl, 'generated-video.mp4')}
-                        className="bg-gradient-to-r from-blue-600 to-blue-400 text-white px-6 py-2 rounded-xl hover:scale-105 transition-all flex items-center space-x-2"
-                      >
-                        <ArrowDownTrayIcon className="w-5 h-5" />
-                        <span>Download Video</span>
-                      </button>
+                      
                     </div>
                   </div>
                 </div>
@@ -468,7 +462,24 @@ export default function AIVideoGeneratorLanding() {
             {testimonials.map((testimonial, index) => (
               <div key={index} className="bg-black/40 backdrop-blur-md rounded-2xl border border-blue-900/50 p-6 transform transition-all duration-300 hover:translate-y-[-10px]">
                 {/* Video Preview */}
-               
+                <div className="relative aspect-video mb-6 rounded-xl overflow-hidden group cursor-pointer">
+                  <video 
+                    className="w-full h-full object-cover"
+                    poster={testimonial.thumbnail}
+                    muted
+                    loop
+                    preload="auto"
+                    playsInline
+                    controls
+                  >
+                    <source src={testimonial.videoUrl} type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                  <div className="absolute bottom-4 right-4 z-10">
+                   
+                  </div>
+                </div>
+
                 {/* Rating */}
                 <div className="flex items-center mb-4">
                   {[...Array(testimonial.rating)].map((_, i) => (

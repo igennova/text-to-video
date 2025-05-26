@@ -357,5 +357,20 @@ def health_check():
     }), 200
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Start background threads before running the app
+    try:
+        # Start queue processor thread
+        queue_processor = threading.Thread(target=process_queue, daemon=True)
+        queue_processor.start()
+
+        # Start cleanup thread
+        cleanup_thread = threading.Thread(target=cleanup_old_tasks, daemon=True)
+        cleanup_thread.start()
+
+        # Run the Flask app
+        app.run(debug=True, use_reloader=False)
+    except KeyboardInterrupt:
+        print("Shutting down server...")
+    except Exception as e:
+        print(f"Error starting server: {e}")
 
