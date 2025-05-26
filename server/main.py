@@ -236,20 +236,22 @@ def process_queue():
     logger.info("Queue processor thread started")
     while True:
         try:
+            logger.info(f"Queue check - Active requests: {len(active_requests)}, Queue size: {request_queue.qsize()}")
+            
             # Check if we can process more requests
-            with queue_lock:
-                logger.info(f"Active requests: {len(active_requests)}, Queue size: {request_queue.qsize()}")
-                if len(active_requests) < MAX_CONCURRENT_REQUESTS and not request_queue.empty():
-                    # Get next request from queue
-                    request_data = request_queue.get()
-                    task_id = request_data['task_id']
-                    prompt = request_data['prompt']
-                    settings = request_data['settings']
-                    
-                    logger.info(f"Processing task {task_id} from queue")
-                    
-                    # Add to active requests
-                    active_requests.add(task_id)
+            if len(active_requests) < MAX_CONCURRENT_REQUESTS and not request_queue.empty():
+                # Get next request from queue
+                request_data = request_queue.get()
+                task_id = request_data['task_id']
+                prompt = request_data['prompt']
+                settings = request_data['settings']
+                
+                logger.info(f"Processing task {task_id} from queue")
+                
+                try:
+                    # Add to active requests before processing
+                    with queue_lock:
+                        active_requests.add(task_id)
                     
                     # Update status
                     update_task_status(task_id, {
@@ -259,9 +261,16 @@ def process_queue():
                         "started_at": datetime.now().isoformat()
                     })
                     
-                    # Start processing in background
-                    executor.submit(process_video_request, task_id, prompt, settings)
-                    logger.info(f"Submitted task {task_id} to executor")
+                    # Process the request directly instead of using executor
+                    process_video_request(task_id, prompt, settings)
+                except Exception as e:
+                    logger.error(f"Error processing task {task_id}: {str(e)}")
+                    update_task_status(task_id, {
+                        "status": "error",
+                        "message": f"Error processing request: {str(e)}"
+                    })
+                    with queue_lock:
+                        active_requests.discard(task_id)
             
             time.sleep(1)  # Prevent busy waiting
         except Exception as e:
@@ -293,7 +302,7 @@ def process_video_request(task_id, prompt, settings):
         set_task_mapping(task_id, api_task_id)
         update_task_status(task_id, {
             "status": "processing",
-            "message": "Starting video generation...",
+            "message": "Video generation in progress...",
             "api_task_id": api_task_id,
             "queue_position": 0
         })
