@@ -74,7 +74,7 @@ shutdown_flag = threading.Event()
 
 # Configure Redis with better error handling
 try:
-    REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
+    REDIS_URL = os.getenv('REDIS_URL', 'redis://red-d0qb0h0dl3ps73eq55dg:6379')
     redis_client = redis.from_url(REDIS_URL, decode_responses=True, socket_timeout=10, socket_connect_timeout=10)
     # Test connection
     redis_client.ping()
