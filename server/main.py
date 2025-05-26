@@ -348,6 +348,28 @@ def generate_video():
             "message": "Failed to start video generation"
         }), 500
 
+@app.route('/check-status/<task_id>', methods=['GET'])
+def check_status(task_id):
+    try:
+        # Get task status from Redis
+        task_status = get_task_status(task_id)
+        
+        if not task_status:
+            return jsonify({
+                "status": "error",
+                "message": "Task not found"
+            }), 404
+            
+        # Return the full status object
+        return jsonify(task_status), 200
+        
+    except Exception as e:
+        logger.error(f"Error checking status for task {task_id}: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": f"Error checking task status: {str(e)}"
+        }), 500
+
 @app.route('/health', methods=['GET'])
 def health_check():
     try:

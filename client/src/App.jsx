@@ -63,28 +63,32 @@ export default function AIVideoGeneratorLanding() {
     const interval = setInterval(async () => {
       try {
         const response = await axios.get(`https://text-to-video-backend1.onrender.com/check-status/${taskId}`);
-        const { status: videoStatus, message, videoUrl, coverImageUrl, progress } = response.data;
+        const { status, message, videoUrl, coverImageUrl, progress, timeElapsed } = response.data;
 
-        if (videoStatus === "success") {
+        if (status === "success") {
           setVideoUrl(videoUrl);
           setCoverImage(coverImageUrl);
           setStatus("Video generated successfully!");
           setLoading(false);
           clearInterval(interval);
-        } else if (videoStatus === "processing") {
-          setStatus(`${message || 'Processing video...'} (${progress || 0}%)`);
-        } else if (videoStatus === "error") {
-          setStatus(`Error: ${message}`);
+        } else if (status === "processing") {
+          setStatus(`${message || `Generating video (${progress || 0}% complete)`}`);
+        } else if (status === "error") {
+          setStatus(`Error: ${message || 'An unknown error occurred'}`);
           setLoading(false);
           clearInterval(interval);
         }
       } catch (error) {
         console.error("Error checking video status:", error);
-        setStatus("Error retrieving video status.");
+        if (error.response?.status === 404) {
+          setStatus("Task not found. Please try generating again.");
+        } else {
+          setStatus("Error checking video status. Please try again.");
+        }
         setLoading(false);
         clearInterval(interval);
       }
-    }, 1000);
+    }, 2000); // Poll every 2 seconds to match backend interval
 
     return () => clearInterval(interval);
   };
